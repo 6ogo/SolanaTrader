@@ -6,11 +6,3 @@ _component_func = components.declare_component(
     "solana_wallet",
     path="\dist"
 )
-
-def solana_wallet():
-    _component_func()
-
-
-
-st.title("Solana Wallet Integration")
-solana_wallet()
