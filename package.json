@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development"
+  },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
@@ -16,8 +20,8 @@
     "@solana/wallet-adapter-react-ui": "^0.9.35",
     "@solana/wallet-adapter-wallets": "^0.19.32",
     "@solana/web3.js": "^1.95.5",
-    "@walletconnect/sign-client": "^2.17.2",
-    "@walletconnect/utils": "^2.17.2",
+    "@walletconnect/sign-client": "^2.17.0",
+    "@walletconnect/utils": "^2.17.0",
     "crypto-browserify": "^3.12.1",
     "css-loader": "^7.1.2",
     "elliptic": "^6.6.1",
