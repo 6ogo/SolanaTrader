@@ -1,0 +1,32 @@
+/* src/styles/wallet.css */
+.wallet-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.wallet-button {
+    background-color: #4e44ce !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 12px 24px !important;
+    color: white !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+}
+
+.wallet-status {
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.connected {
+    color: #4caf50;
+    font-weight: 600;
+}
+
+.disconnected {
+    color: #f44336;
+}

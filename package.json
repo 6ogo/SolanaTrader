@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "webpack --mode production",
-    "dev": "webpack --mode development"
+    "dev": "webpack --mode development --watch"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
@@ -9,6 +9,8 @@
     "@babel/preset-react": "^7.25.9",
     "babel-loader": "^9.2.1",
     "browserify-zlib": "^0.2.0",
+    "css-loader": "^7.1.2",
+    "style-loader": "^4.0.0",
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4"
   },
@@ -23,15 +25,20 @@
     "@walletconnect/sign-client": "^2.17.0",
     "@walletconnect/utils": "^2.17.0",
     "crypto-browserify": "^3.12.1",
-    "css-loader": "^7.1.2",
     "elliptic": "^6.6.1",
     "https-browserify": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
-    "style-loader": "^4.0.0",
     "url": "^0.11.4",
     "vm-browserify": "^1.1.2"
-  }
+  },
+  "name": "solanatrader",
+  "version": "1.0.0",
+  "description": "A streamlit application to trade",
+  "main": "webpack.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
