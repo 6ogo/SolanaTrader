@@ -5,7 +5,7 @@ import os
 # Define the component directory
 COMPONENT_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "./frontend/dist",
+    "frontend/dist",
 )
 
 # Create the component

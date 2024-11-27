@@ -1,12 +1,15 @@
+// frontend/webpack.config.js
 const path = require('path');
 
 module.exports = {
-    entry: './src/MyWalletComponent.jsx',
+    entry: './src/components/WalletConnect.jsx',
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: 'bundle.js',
-        library: 'MyWalletComponent',
-        libraryTarget: 'umd'
+        library: {
+            name: 'WalletConnect',
+            type: 'umd',
+        },
     },
     module: {
         rules: [
@@ -26,11 +29,11 @@ module.exports = {
             }
         ]
     },
+    resolve: {
+        extensions: ['.js', '.jsx']
+    },
     externals: {
         react: 'React',
         'react-dom': 'ReactDOM'
-    },
-    resolve: {
-        extensions: ['.js', '.jsx']
     }
 };
