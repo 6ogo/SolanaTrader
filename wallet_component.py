@@ -1,39 +1,20 @@
-import streamlit as st
 import streamlit.components.v1 as components
 import os
 
-# Define the component directory
-COMPONENT_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "frontend/dist",
-)
+def init_wallet_component():
+    # Get the absolute path to the frontend/dist directory
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    build_dir = os.path.join(parent_dir, "frontend", "dist")
+    
+    # Create the component
+    return components.declare_component(
+        "wallet_connect",
+        path=build_dir
+    )
 
-# Create the component
-_solana_wallet = components.declare_component(
-    "solana_wallet",
-    path=COMPONENT_PATH,
-)
+# Create component instance
+wallet_component = init_wallet_component()
 
 def wallet_connect():
-    """
-    Create a Solana wallet connection component.
-    Returns the connected wallet information if successful.
-    """
-    return _solana_wallet()
-
-# Add to your main.py
-def check_wallet_extension():
-    """Check if wallet extension is installed"""
-    js_code = """
-    <script>
-    function checkWallet() {
-        if (typeof window.phantom !== 'undefined' || 
-            typeof window.solflare !== 'undefined' || 
-            typeof window.backpack !== 'undefined') {
-            return true;
-        }
-        return false;
-    }
-    </script>
-    """
-    st.components.v1.html(js_code, height=0)
+    """Render the wallet connect component"""
+    return wallet_component()

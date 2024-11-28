@@ -1,13 +1,22 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import WalletConnect from './components/WalletConnect';
+import SmartContractInteraction from './components/SmartContractInteraction';
 
-// Create a function that Streamlit can call to render your component
+const App = () => {
+  return (
+    <div>
+      <WalletConnect />
+      <SmartContractInteraction />
+    </div>
+  );
+};
+
 const streamlitRender = (targetElement) => {
   const root = createRoot(targetElement);
   root.render(
     <React.StrictMode>
-      <WalletConnect />
+      <App />
     </React.StrictMode>
   );
 };
