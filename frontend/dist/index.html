@@ -1,52 +1,10 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
+  <head>
     <title>Solana Wallet Component</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div id="root"></div>
-    <script>
-        // Function to load scripts in order
-        function loadScripts(scripts) {
-            return scripts.reduce((promise, script) => {
-                return promise.then(() => {
-                    return new Promise((resolve) => {
-                        const scriptElement = document.createElement('script');
-                        scriptElement.src = script;
-                        scriptElement.onload = resolve;
-                        document.body.appendChild(scriptElement);
-                    });
-                });
-            }, Promise.resolve());
-        }
-
-        // Get all .js files in the dist directory
-        fetch('.')
-            .then(response => response.text())
-            .then(text => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(text, 'text/html');
-                const scripts = Array.from(doc.querySelectorAll('a'))
-                    .filter(a => a.href.endsWith('.js'))
-                    .map(a => a.href.split('/').pop())
-                    .sort((a, b) => {
-                        // Load runtime chunk first, then vendors, then main
-                        if (a.includes('runtime')) return -1;
-                        if (b.includes('runtime')) return 1;
-                        if (a.includes('vendors')) return -1;
-                        if (b.includes('vendors')) return 1;
-                        return 0;
-                    });
-
-                return loadScripts(scripts);
-            })
-            .then(() => {
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(React.createElement(WalletConnect.default));
-            });
-    </script>
-</body>
+    <script src="bundle.js"></script>
+  </body>
 </html>
