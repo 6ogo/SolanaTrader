@@ -1,31 +1,31 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import WalletConnect from './components/WalletConnect';
-import SmartContractInteraction from './components/SmartContractInteraction';
 
-const App = () => {
+// Create a Streamlit Wrapper Component
+const StreamlitComponentWrapper = () => {
   return (
     <div>
       <WalletConnect />
-      <SmartContractInteraction />
     </div>
   );
 };
 
-// Initialize the component with the App wrapper
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
-);
+// Check if we're running in Streamlit
+if (window.Streamlit) {
+  const root = createRoot(document.getElementById('root'));
+  
+  // Define the function that Streamlit will call
+  const componentMounter = (element) => {
+    root.render(
+      <React.StrictMode>
+        <StreamlitComponentWrapper />
+      </React.StrictMode>
+    );
+  };
 
-// Add Streamlit component functions
-const Streamlit = window.Streamlit;
-
-if (Streamlit) {
-  Streamlit.loadViewer({});
-  Streamlit.setComponentReady();
+  // Register our component with Streamlit
+  window.Streamlit.registerRenderHandler(componentMounter);
+} else {
+  console.warn('Not running in Streamlit');
 }
-
-export default App;
