@@ -1,5 +1,5 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom';
 import WalletConnect from './components/WalletConnect';
 import SmartContractInteraction from './components/SmartContractInteraction';
 
@@ -12,13 +12,20 @@ const App = () => {
   );
 };
 
-const streamlitRender = (targetElement) => {
-  const root = createRoot(targetElement);
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-};
+// Initialize the component with the App wrapper
+ReactDOM.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+  document.getElementById('root')
+);
 
-export default streamlitRender;
+// Add Streamlit component functions
+const Streamlit = window.Streamlit;
+
+if (Streamlit) {
+  Streamlit.loadViewer({});
+  Streamlit.setComponentReady();
+}
+
+export default App;
