@@ -1,0 +1,13 @@
+streamlit
+requests
+tweepy
+numpy
+pandas
+plotly
+textblob
+solana
+solders
+streamlit.components.v1
+talib
+json
+typing
