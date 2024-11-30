@@ -1,0 +1,50 @@
+
+<html>
+    <head>
+        <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    </head>
+    <body>
+        <script>
+            async function connectWallet() {
+                try {
+                    // Wait a bit for Phantom to be available
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const provider = window.phantom?.solana;
+                    
+                    if (!provider?.isPhantom) {
+                        throw new Error("Phantom wallet not found! Please install Phantom.");
+                    }
+                    
+                    const connection = await provider.connect();
+                    const publicKey = connection.publicKey.toString();
+                    
+                    // Send the response back to Streamlit
+                    const response = {
+                        type: 'wallet_response',
+                        data: {
+                            address: publicKey,
+                            connected: true
+                        }
+                    };
+                    
+                    window.parent.postMessage(response, '*');
+                    return response;
+                } catch (err) {
+                    console.error("Wallet connection error:", err);
+                    window.parent.postMessage({
+                        type: 'wallet_response',
+                        data: {
+                            address: null,
+                            connected: false,
+                            error: err.message
+                        }
+                    }, '*');
+                }
+            }
+
+            // Auto-connect on load
+            window.addEventListener('load', connectWallet);
+        </script>
+    </body>
+</html>
