@@ -7,7 +7,6 @@ plotly
 textblob
 solana
 solders
-streamlit.components.v1
-talib
-json
+TA-lib
 typing
+Pyrebase4
