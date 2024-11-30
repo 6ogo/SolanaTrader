@@ -117,7 +117,7 @@ st.title("Enhanced Solana Memecoin Trading Bot")
 # Wallet connection
 wallet_connected = components.declare_component(
     "solana_wallet",
-    path="./dist"
+    path="./frontend/dist"
 )
 connected_wallet = wallet_connected()
 
