@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 from textblob import TextBlob
+import solana
 from solana.rpc.api import Client
 from solana.transaction import Transaction
 from solders.system_program import TransferParams, transfer
@@ -21,62 +22,105 @@ from datetime import datetime, timedelta
 import numpy as np
 from scipy.signal import find_peaks
 import talib
-from dataclasses import dataclass
-from typing import List, Dict, Optional
-from wallet_component import wallet_connect
+import json
+from typing import Dict, List
+from wallet_component import wallet_connect, buy_token, SolanaWallet
 
+# Initialize session state for wallet
+if 'wallet_connected' not in st.session_state:
+    st.session_state.wallet_connected = False
+if 'wallet_address' not in st.session_state:
+    st.session_state.wallet_address = None
 
-@dataclass
-class AlertConfig:
-    price_drop_threshold: float = 0.30  # 15% drop
-    liquidity_drop_threshold: float = 0.35  # 20% liquidity drop
-    sudden_sell_threshold: float = 0.20  # 30% of total supply
-    volume_spike_threshold: float = 3.0  # 3x normal volume
-    max_alert_frequency: timedelta = timedelta(hours=0.5)
-
-class DataCache:
-    def __init__(self, db_path="memecoin_cache.db"):
-        self.conn = sqlite3.connect(db_path)
-        self.setup_database()
-
-    def setup_database(self):
-        """Create necessary tables for caching"""
-        with self.conn:
-            # Price and volume history
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS price_history (
-                    token_address TEXT,
-                    timestamp DATETIME,
-                    price REAL,
-                    volume REAL,
-                    liquidity REAL,
-                    PRIMARY KEY (token_address, timestamp)
-                )
-            """)
+class MemecoinAnalyzer:
+    def __init__(self, twitter_api=None):
+        self.twitter_api = twitter_api
+        
+    def fetch_dexscreener_data(self):
+        """Fetch memecoin data from Dexscreener"""
+        try:
+            url = "https://api.dexscreener.com/latest/dex/tokens/solana"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
             
-            # Pattern detection history
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS pattern_history (
-                    token_address TEXT,
-                    pattern_type TEXT,
-                    timestamp DATETIME,
-                    confidence REAL,
-                    description TEXT,
-                    PRIMARY KEY (token_address, pattern_type, timestamp)
-                )
-            """)
+            if not data or 'pairs' not in data:
+                st.error("Invalid response from Dexscreener API")
+                return {'pairs': []}
+                
+            return data
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error fetching data: {str(e)}")
+            return {'pairs': []}
+    
+    def filter_memecoins(self, data, ticker):
+        """Filter memecoins based on ticker"""
+        try:
+            if not data or not isinstance(data, dict) or 'pairs' not in data:
+                st.warning("No data available to filter")
+                return []
+                
+            memecoins = []
+            for token in data['pairs']:
+                if not isinstance(token, dict) or 'baseToken' not in token:
+                    continue
+                    
+                base_token = token.get('baseToken', {})
+                if not isinstance(base_token, dict) or 'symbol' not in base_token:
+                    continue
+                    
+                if ticker.upper() in base_token['symbol'].upper():
+                    memecoins.append(token)
+                    
+            return memecoins
+        except Exception as e:
+            st.error(f"Error filtering memecoins: {str(e)}")
+            return []
+    
+    def analyze_social_sentiment(self, ticker, count=100):
+        """Analyze social media sentiment"""
+        default_sentiment = {
+            'average_sentiment': 0.0,
+            'sentiment_volatility': 0.0,
+            'total_tweets': 0,
+            'tweet_data': []
+        }
+        
+        if not self.twitter_api:
+            st.warning("Twitter API not configured")
+            return default_sentiment
             
-            # Alert history
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS alert_history (
-                    token_address TEXT,
-                    alert_type TEXT,
-                    timestamp DATETIME,
-                    severity TEXT,
-                    message TEXT,
-                    PRIMARY KEY (token_address, timestamp)
-                )
-            """)
+        try:
+            query = f"#{ticker}"
+            tweets = self.twitter_api.search_tweets(q=query, count=count, lang='en')
+            
+            tweet_sentiments = []
+            tweet_data = []
+            
+            for tweet in tweets:
+                analysis = TextBlob(tweet.text)
+                sentiment_score = analysis.sentiment.polarity
+                tweet_sentiments.append(sentiment_score)
+                
+                tweet_data.append({
+                    'user': tweet.user.screen_name,
+                    'text': tweet.text,
+                    'date': tweet.created_at,
+                    'sentiment': sentiment_score,
+                    'likes': tweet.favorite_count,
+                    'retweets': tweet.retweet_count
+                })
+            
+            return {
+                'average_sentiment': np.mean(tweet_sentiments) if tweet_sentiments else 0.0,
+                'sentiment_volatility': np.std(tweet_sentiments) if tweet_sentiments else 0.0,
+                'total_tweets': len(tweets),
+                'tweet_data': tweet_data
+            }
+        except Exception as e:
+            st.error(f"Error analyzing sentiment: {str(e)}")
+            return default_sentiment
+
 
     def cache_price_data(self, token_address: str, price_data: dict):
         """Cache new price data"""
@@ -92,157 +136,66 @@ class DataCache:
                 price_data['liquidity']
             ))
 
-    def get_price_history(self, token_address: str, days: int = 30) -> pd.DataFrame:
-        """Get cached price history"""
-        query = """
-            SELECT * FROM price_history 
-            WHERE token_address = ? 
-            AND timestamp > ?
-        """
-        cutoff = datetime.now() - timedelta(days=days)
-        df = pd.read_sql_query(
-            query, 
-            self.conn, 
-            params=(token_address, cutoff),
-            parse_dates=['timestamp']
+class RiskManager:
+    @staticmethod
+    def calculate_risk_metrics(memecoin_data, sentiment_data):
+        """Calculate risk metrics for the trade"""
+        try:
+            liquidity = float(memecoin_data['liquidity']['usd'])
+            volume = float(memecoin_data['volume']['h24'])
+            price_change = float(memecoin_data.get('priceChange', {}).get('h24', 0))
+            
+            risk_metrics = {
+                'liquidity_score': min(liquidity / 1000000, 1),
+                'volume_score': min(volume / 100000, 1),
+                'price_volatility': abs(price_change) / 100,
+                'sentiment_risk': abs(sentiment_data['sentiment_volatility']),
+                'social_volume': min(sentiment_data['total_tweets'] / 1000, 1)
+            }
+            
+            risk_score = (
+                (1 - risk_metrics['liquidity_score']) * 30 +
+                (1 - risk_metrics['volume_score']) * 20 +
+                risk_metrics['price_volatility'] * 25 +
+                risk_metrics['sentiment_risk'] * 15 +
+                (1 - risk_metrics['social_volume']) * 10
+            )
+            
+            return risk_score, risk_metrics
+        except Exception as e:
+            st.error(f"Error calculating risk metrics: {str(e)}")
+            return 100, {}
+
+# Streamlit UI
+st.title("Enhanced Solana Trading")
+
+# Wallet connection
+# Wallet connection
+if not st.session_state.wallet_connected:
+    if st.button("Connect Phantom Wallet"):
+        with st.spinner("Connecting to wallet..."):
+            result = wallet_connect()
+            if result and isinstance(result, dict) and result.get("connected", False):
+                st.session_state.wallet_connected = True
+                st.session_state.wallet_address = result.get("address")
+                st.success(f"Connected Wallet: {st.session_state.wallet_address}")
+                st.rerun()  # Refresh the page to update the UI
+            else:
+                st.error("Failed to connect wallet. Please make sure Phantom is installed.")
+
+twitter_api = None
+try:
+    # Check if Twitter API keys exist in secrets
+    if "TWITTER_API_KEYS" in st.secrets:
+        auth = tweepy.OAuth1UserHandler(
+            st.secrets["TWITTER_API_KEYS"]["consumer_key"],
+            st.secrets["TWITTER_API_KEYS"]["consumer_secret"],
+            st.secrets["TWITTER_API_KEYS"]["access_token"],
+            st.secrets["TWITTER_API_KEYS"]["access_token_secret"]
         )
-        return df.set_index('timestamp')
-
-class PatternDetector:
-    def __init__(self, cache: DataCache):
-        self.cache = cache
-        self.required_points = 24  # Minimum points for pattern detection
-
-    def detect_patterns(self, token_address: str, price_data: pd.DataFrame) -> Dict:
-        """Detect various price and volume patterns"""
-        if len(price_data) < self.required_points:
-            return None
-
-        patterns = {}
-        
-        # Convert data to numpy arrays
-        prices = price_data['price'].values
-        volumes = price_data['volume'].values
-        
-        # Price patterns
-        patterns.update(self.detect_price_patterns(prices))
-        
-        # Volume patterns
-        patterns.update(self.detect_volume_patterns(volumes))
-        
-        # Combined patterns
-        patterns.update(self.detect_combined_patterns(prices, volumes))
-        
-        return patterns
-    
-    def detect_accumulation(self, prices: np.array) -> Dict:
-        """Detect accumulation patterns"""
-        window = min(len(prices), 20)  # Look at last 20 periods
-        price_changes = np.diff(prices[-window:])
-        volume_concentration = np.std(price_changes) / np.mean(np.abs(price_changes)) if len(price_changes) > 0 else 0
-        
-        # Check for sideways movement with decreasing volatility
-        is_sideways = volume_concentration < 0.5
-        volatility_decreasing = np.std(price_changes[:len(price_changes)//2]) > np.std(price_changes[len(price_changes)//2:])
-        
-        confidence = 0.7 if (is_sideways and volatility_decreasing) else 0.3
-        
-        return {
-            'detected': is_sideways and volatility_decreasing,
-            'confidence': confidence,
-            'volume_concentration': volume_concentration
-        }
-
-    def detect_distribution(self, prices: np.array) -> Dict:
-        """Detect distribution patterns"""
-        window = min(len(prices), 20)
-        price_changes = np.diff(prices[-window:])
-        
-        # Check for increased selling pressure
-        selling_pressure = np.sum(price_changes < 0) / len(price_changes) if len(price_changes) > 0 else 0
-        high_volume_sells = np.mean(price_changes[price_changes < 0]) if len(price_changes[price_changes < 0]) > 0 else 0
-        
-        is_distribution = selling_pressure > 0.6 and high_volume_sells < -0.01
-        confidence = selling_pressure * 0.7 + abs(high_volume_sells) * 0.3
-        
-        return {
-            'detected': is_distribution,
-            'confidence': confidence,
-            'selling_pressure': selling_pressure
-        }
-    
-    def calculate_pump_dump_score(self, prices: np.array, peaks: np.array, valleys: np.array) -> float:
-        """Calculate pump and dump pattern confidence score"""
-        if len(peaks) == 0 or len(valleys) == 0:
-            return 0.0
-        
-        # Calculate price movements
-        avg_pump = np.mean([prices[peak] / prices[valley] for peak, valley in zip(peaks, valleys) if valley < peak]) - 1
-        avg_dump = np.mean([prices[valley] / prices[peak] for peak, valley in zip(peaks[:-1], valleys[1:]) if peak < valley]) - 1
-        
-        # Calculate time characteristics
-        pump_duration = np.mean(np.diff(peaks))
-        dump_duration = np.mean(np.diff(valleys))
-        
-        # Score components
-        magnitude_score = min(avg_pump / 0.5, 1.0)  # Normalize to max 50% pump
-        symmetry_score = min(abs(avg_pump/avg_dump) if avg_dump != 0 else 0, 1.0)
-        time_score = min(dump_duration / pump_duration if pump_duration != 0 else 0, 1.0)
-        
-        # Weighted score
-        score = (magnitude_score * 0.4 + symmetry_score * 0.3 + time_score * 0.3)
-        return min(score, 1.0)
-    
-    def detect_price_patterns(self, prices: np.array) -> Dict:
-        """Detect price-based patterns"""
-        patterns = {}
-        
-        # Detect potential pump and dumps
-        peaks, _ = find_peaks(prices, prominence=np.std(prices))
-        valleys, _ = find_peaks(-prices, prominence=np.std(prices))
-        
-        if len(peaks) > 0 and len(valleys) > 0:
-            pump_dump_score = self.calculate_pump_dump_score(prices, peaks, valleys)
-            patterns['pump_dump'] = {
-                'confidence': pump_dump_score,
-                'locations': peaks.tolist()
-            }
-
-        # Detect accumulation patterns
-        patterns['accumulation'] = self.detect_accumulation(prices)
-        
-        # Detect distribution patterns
-        patterns['distribution'] = self.detect_distribution(prices)
-        
-        return patterns
-
-    def detect_volume_patterns(self, volumes: np.array) -> Dict:
-        """Detect volume-based patterns"""
-        patterns = {}
-        
-        # Detect volume spikes
-        avg_volume = np.mean(volumes)
-        spikes = np.where(volumes > avg_volume * 3)[0]
-        
-        if len(spikes) > 0:
-            patterns['volume_spikes'] = {
-                'confidence': len(spikes) / len(volumes),
-                'locations': spikes.tolist()
-            }
-
-        return patterns
-
-    def detect_combined_patterns(self, prices: np.array, volumes: np.array) -> Dict:
-        """Detect patterns using both price and volume"""
-        patterns = {}
-        
-        # Detect smart money patterns
-        patterns['smart_money'] = self.detect_smart_money_patterns(prices, volumes)
-        
-        # Detect manipulation patterns
-        patterns['manipulation'] = self.detect_manipulation(prices, volumes)
-        
-        return patterns
+        twitter_api = tweepy.API(auth)
+except Exception as e:
+    st.warning("Twitter API configuration failed. Social sentiment analysis will be disabled.")
 
 class WalletMonitor:
     def __init__(self, cache: DataCache, alert_config: AlertConfig):

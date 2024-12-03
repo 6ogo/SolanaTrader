@@ -1,0 +1,17 @@
+streamlit
+requests
+tweepy
+numpy
+pandas
+plotly
+textblob
+solana
+solders
+TA-lib
+typing
+Pyrebase4
+solana-sdk<=0.25.6
+solana==0.28.0
+solders==0.14.0
+base58
+streamlit

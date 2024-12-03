@@ -32,10 +32,58 @@ def wallet_connect(key: Optional[str] = None) -> Optional[Dict]:
     try:
         return _component_func(key=key, default=None)
     except Exception as e:
-        st.error(f"Error in wallet_connect: {e}")
+        st.error(f"Error connecting wallet: {str(e)}")
         return None
 
-if __name__ == "__main__":
-    st.write("Testing wallet component")
-    result = wallet_connect(key="test")
-    st.write("Component result:", result)
+def init_wallet_component():
+    """Initialize the wallet component"""
+    try:
+        import os
+        os.makedirs("frontend/dist", exist_ok=True)
+        
+        with open("frontend/dist/wallet.html", "w") as f:
+            f.write(WALLET_HTML)
+        
+        return components.declare_component(
+            "solana_wallet",
+            path="frontend/dist"
+        )
+    except Exception as e:
+        st.error(f"Error initializing wallet component: {str(e)}")
+        return None
+
+# Initialize Solana wallet handler
+wallet_handler = SolanaWallet()
+
+# Create the wallet connection component
+wallet_component = init_wallet_component()
+
+def buy_token(wallet_address: str, token_mint: str, amount: float):
+    """Execute token purchase"""
+    try:
+        # Simplified for now - just create a basic transaction
+        tx_data = wallet_handler.create_transfer_tx(
+            wallet_address,
+            token_mint,  # This will be the recipient address
+            amount
+        )
+        
+        if not tx_data:
+            return False
+            
+        # Send the transaction to be signed
+        result = wallet_component(
+            type="sign_and_send",
+            transaction=tx_data["transaction"]
+        )
+        
+        if result and result.get("success"):
+            st.success(f"Transaction successful! Signature: {result['signature']}")
+            return True
+        else:
+            st.error("Transaction failed: " + result.get("error", "Unknown error"))
+            return False
+            
+    except Exception as e:
+        st.error(f"Error executing purchase: {str(e)}")
+        return False
